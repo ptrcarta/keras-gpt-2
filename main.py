@@ -17,7 +17,11 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.python.tpu import device_assignment  as device_assignment_lib
 from tensorflow.python.distribute import tpu_strategy as tpu_lib
-resolver = tf.distribute.cluster_resolver.TPUClusterResolver()
+if 'TPU_NAME' in os.environ:
+    resolver = tf.distribute.cluster_resolver.TPUClusterResolver()
+else:
+    from resolver import res as resolver
+
 tf.config.experimental_connect_to_cluster(resolver)
 topology = tf.tpu.experimental.initialize_tpu_system(resolver)
 # strategy = tf.distribute.experimental.TPUStrategy(resolver)
@@ -36,6 +40,8 @@ second_strategy = tpu_lib.TPUStrategy(
     resolver, device_assignment=device_assignment2)
 
 
+print('initialized strategies')
+
 with first_strategy.scope():
   model = keras_gpt_2.model.get_model(**hparams)
   m1, _ = split.split_model(model, split_n=23)
@@ -46,6 +52,8 @@ with second_strategy.scope():
   _, m2 = split.split_model(model, split_n=23)
   del model
   opt2 = tf.keras.optimizers.Adagrad(learning_rate=1e-4)
+
+print('created models')
 
 
 @tf.function
