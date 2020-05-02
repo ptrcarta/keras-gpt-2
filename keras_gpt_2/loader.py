@@ -21,7 +21,7 @@ def load_trained_model_from_checkpoint(config_path,
     :param fixed_input_shape: Whether the length of input is fixed. (Needed for TPU training)
     :return: The model.
     """
-    with open(config_path, 'r') as reader:
+    with tf.io.gfile.GFile(config_path, 'r') as reader:
         config = json.load(reader)
     if seq_len is None:
         n_ctx = config['n_ctx']

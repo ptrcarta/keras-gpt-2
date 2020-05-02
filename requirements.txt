@@ -1,4 +1,8 @@
-numpy
-Keras
-regex
-keras-transformer>=0.30.0
+keras-embed-sim==0.7.0
+keras-layer-normalization==0.14.0
+keras-multi-head==0.22.0
+keras-pos-embd==0.11.0
+keras-position-wise-feed-forward==0.6.0
+Keras-Preprocessing==1.1.0
+keras-self-attention==0.41.0
+keras-transformer==0.32.0
