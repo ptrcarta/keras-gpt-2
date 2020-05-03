@@ -58,11 +58,11 @@ print('created models')
 
 @tf.function
 def first_half(x, output_grads, embd_grads):
-    with tf.GradientTape(persistent=True) as tape:
+    with tf.GradientTape() as tape:
         intermed, embeddings = m1(x)
         intermed_loss = tf.reduce_sum(intermed*output_grads)
         embd_loss = tf.reduce_sum(embeddings*embd_grads)
-    grads = tape.gradient(intermed_loss + embd_loss, m1.trainable_variables)
+        grads = tape.gradient(intermed_loss + embd_loss, m1.trainable_variables)
     opt1.apply_gradients(zip(grads, m1.trainable_variables))
     return intermed, embeddings
 
@@ -73,7 +73,7 @@ def second_half(inter, embd):
         output_data = m2([inter, embd])
         loss = tf.reduce_mean(output_data) #fake loss for dev purposes
     local_grads = tape.gradient(loss, m2.trainable_variables)
-    opt2.apply_gradients(zip(local_grads, m2.trainable_variables))
+    opt2.apply_gradientt(zip(local_grads, m2.trainable_variables))
     input_grads, embd_grads = tape.gradient(loss, [inter, embd])
 
     return output_data, input_grads, embd_grads
