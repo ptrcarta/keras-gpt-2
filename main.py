@@ -17,7 +17,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.python.tpu import device_assignment  as device_assignment_lib
 from tensorflow.python.distribute import tpu_strategy as tpu_lib
-if 'TPU_NAME' in os.environ:
+if 'COLAB_TPU_ADDR' in os.environ:
     resolver = tf.distribute.cluster_resolver.TPUClusterResolver()
 else:
     from resolver import res as resolver
@@ -60,7 +60,10 @@ print('created models')
 def first_half(x, output_grads, embd_grads):
   with tf.GradientTape(persistent=True) as tape:
     intermed, embeddings = m1(x)
-  tape.batch_jacobian(intermed, m1.trainable_variables)
+    intermed_loss = tf.reduce_sum(intermed*output_grads)
+    embd_loss = tf.reduce_sum(embeddings*embd_grads)
+  grads = tape.gradient(intermed_loss + embd_loss, m1.trainable_variables)
+  opt1.apply_grads(zip(grads, m1.trainable_variables))
   return intermed, embeddings
 
 @tf.function
@@ -80,22 +83,27 @@ input_data = np.random.randint(0, 50000, size=(2,100))
 
 @tf.function
 def fake_get_data(): #wrap fake input data into perreplica objects
-  return input_data
+  intermed, embeds = m1(input_data)
+  return input_data, intermed, embeds
 
 @tf.function
 def first_iter_intermed_embd():
   return tf.zeros()
 
-  @tf.function
+@tf.function
 def test():
-  per_replica_data = first_strategy.run(fake_get_data)
-  intermed1, embd1 = first_strategy.run(first_half, (per_replica_data,))
+  per_replica_data, fake_intermed_grad, fake_embeds_grad = first_strategy.experimental_run_v2(fake_get_data)
+  intermed1, embd1 = first_strategy.experimental_run_v2(
+          first_half, (per_replica_data, fake_intermed_grad, fake_embeds_grad))
+  out, intermed_grads1, embd_grads1 = second_strategy.experimental_run_v2(second_half, (intermed1, embd1))
 
   for i in range(1):
-    intermed2, embd2 = first_strategy.run(first_half, (per_replica_data,))
-    out = second_strategy.run(second_half, (intermed1, embd1))
-    intermed1, embd1 = first_strategy.run(first_half, (per_replica_data,))
-    out = second_strategy.run(second_half, (intermed2, embd2))
+    intermed2, embd2 = first_strategy.experimental_run_v2(
+            first_half, (per_replica_data, intermed_grads1, embd_grads1))
+    out, intermed_grads2, embd_grads2 = second_strategy.experimental_run_v2(second_half, (intermed1, embd1))
+    intermed1, embd1 = first_strategy.experimental_run_v2(
+            first_half, (per_replica_data, intermed_grads2, embd_grads2))
+    out, intermed_grads1, embd_grads1 = second_strategy.experimental_run_v2(second_half, (intermed2, embd2))
   return out
 
 #%%time
