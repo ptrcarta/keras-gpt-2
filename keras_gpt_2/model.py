@@ -139,6 +139,80 @@ def get_model(n_vocab,
     )
     return model
 
+def get_model_first(split_n, n_vocab,
+              n_ctx=1024,
+              n_embd=768,
+              n_head=12,
+              n_layer=12,
+              batch_size=None,
+              fixed_input_shape=False):
+
+    if fixed_input_shape:
+        input_layer_shape = (batch_size, n_ctx)
+    else:
+        input_layer_shape = (batch_size, None)
+    input_layer = keras.layers.Input(
+        batch_shape=input_layer_shape,
+        name='Input',
+    )
+
+    embed_token, embeddings = EmbeddingRet(
+        input_dim=n_vocab,
+        output_dim=n_embd,
+        mask_zero=False,
+        name='Embed-Token',
+    )(input_layer)
+    embed_token_pos = PositionEmbedding(
+        input_dim=n_ctx,
+        output_dim=n_embd,
+        mode=PositionEmbedding.MODE_ADD,
+        name='Embed-Token-Pos',
+    )(embed_token)
+
+    last_layer = embed_token_pos
+    for i in range(split_n):
+        last_layer = _get_encoder_component(
+            name='Encode-%d' % i,
+            input_layer=last_layer,
+            head_num=n_head,
+            hidden_dim=n_embd * 4,
+            attention_activation=None,
+            feed_forward_activation=gelu,
+        )
+    model = keras.models.Model(inputs=input_layer, outputs=[last_layer, embeddings])
+    return model, last_layer.shape, embeddings.shape
+
+def get_model_second(split_n, n_vocab, l_shape, embeddings_shape,
+              n_ctx=1024,
+              n_embd=768,
+              n_head=12,
+              n_layer=12,
+              batch_size=None,
+              fixed_input_shape=False):
+
+    input = tf.keras.layers.Input(batch_shape=l_shape)
+    input_embd = tf.keras.layers.Input(batch_shape=embeddings_shape)
+    last_layer = input
+    for i in range(split_n, n_layer):
+        last_layer = _get_encoder_component(
+            name='Encode-%d' % i,
+            input_layer=last_layer,
+            head_num=n_head,
+            hidden_dim=n_embd * 4,
+            attention_activation=None,
+            feed_forward_activation=gelu,
+        )
+    norm_layer = LayerNormalization(
+        name='Norm',
+    )(last_layer)
+
+    output_layer = EmbeddingSim(
+        use_bias=False,
+        name='Output',
+    )([norm_layer, input_embd])
+
+    model = keras.models.Model(inputs=[input, input_embd], outputs=output_layer)
+    return model
 
 def get_custom_objects():
     custom_objects = get_transformer_custom_objects()

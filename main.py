@@ -10,7 +10,7 @@ hparams = {
 }
 
 import keras_gpt_2
-import split
+#import split
 import numpy as np
 
 # inititalize strategies
@@ -43,14 +43,16 @@ second_strategy = tpu_lib.TPUStrategy(
 print('initialized strategies')
 
 with first_strategy.scope():
-    model = keras_gpt_2.model.get_model(**hparams)
-    m1, _ = split.split_model(model, split_n=23)
-    del model
+    m1, l_shape, embd_shape = keras_gpt_2.model.get_model_first(split_n=23, **hparams)
+    #m1, _ = split.split_model(model, split_n=23)
+    #del model
     opt1 = tf.keras.optimizers.Adagrad(learning_rate=1e-4)
 with second_strategy.scope():
-    model = keras_gpt_2.model.get_model(**hparams)
-    _, m2 = split.split_model(model, split_n=23)
-    del model
+    m2 = keras_gpt_2.model.get_model_second(split_n=23,
+            l_shape=l_shape, embeddings_shape=embd_shape,
+            **hparams)
+    #_, m2 = split.split_model(model, split_n=23)
+    #del model
     opt2 = tf.keras.optimizers.Adagrad(learning_rate=1e-4)
 
 print('created models')
