@@ -190,8 +190,8 @@ def get_model_second(split_n, n_vocab, l_shape, embeddings_shape,
               batch_size=None,
               fixed_input_shape=False):
 
-    input = tf.keras.layers.Input(batch_shape=l_shape)
-    input_embd = tf.keras.layers.Input(batch_shape=embeddings_shape)
+    input = keras.layers.Input(batch_shape=l_shape)
+    input_embd = keras.layers.Input(batch_shape=embeddings_shape)
     last_layer = input
     for i in range(split_n, n_layer):
         last_layer = _get_encoder_component(
